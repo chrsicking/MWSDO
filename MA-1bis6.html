@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zahlen & Punkte verbinden</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --card-num-bg: #e3f2fd;
+            --card-num-border: #2196f3;
+            --card-dot-bg: #fff3e0;
+            --card-dot-border: #ff9800;
+            --selected: #ffeb3b;
+            --matched: #c8e6c9;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .nav-back {
+            align-self: flex-start;
+            text-decoration: none;
+            color: #007aff;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            height: 105px;
+            background: white;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+            border: 4px solid transparent;
+            transition: transform 0.1s ease, border-color 0.15s ease, opacity 0.3s ease;
+        }
+
+        .card:active {
+            transform: scale(0.96);
+        }
+
+        /* Zahlenseite */
+        .card-number {
+            background-color: var(--card-num-bg);
+            border-color: var(--card-num-border);
+            font-size: 52px;
+            font-weight: 800;
+            color: #0d47a1;
+        }
+
+        /* Punkteseite */
+        .card-dots {
+            background-color: var(--card-dot-bg);
+            border-color: var(--card-dot-border);
+            padding: 10px;
+        }
+
+        /* Würfel-Gitter für Punkte (3x3 Raster) */
+        .dot-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 24px);
+            grid-template-rows: repeat(3, 24px);
+            gap: 4px;
+            justify-content: center;
+            align-content: center;
+        }
+
+        .dot {
+            width: 22px;
+            height: 22px;
+            background-color: #e65100;
+            border-radius: 50%;
+            display: none;
+        }
+
+        .dot.visible {
+            display: block;
+        }
+
+        /* Status-Klassen */
+        .card.selected {
+            border-color: #f57f17 !important;
+            background-color: var(--selected) !important;
+            transform: scale(1.03);
+        }
+
+        .card.matched {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        .card.shake {
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        /* Gewonnen-Bereich */
+        .win-overlay {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+        }
+
+        .win-overlay.show {
+            display: flex;
+        }
+
+        .win-msg {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+
+        .btn-again {
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 22px;
+            font-weight: bold;
+            padding: 14px 28px;
+            cursor: pointer;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+        }
+
+        .btn-again:active {
+            transform: scale(0.96);
+        }
+
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <a href="index.html" class="nav-back">← Zurück zur Übersicht</a>
+
+    <div class="header">
+        <h1>Finde die Paare!</h1>
+    </div>
+
+    <div class="game-board" id="board">
+        <div class="column" id="col-numbers"></div>
+        <div class="column" id="col-dots"></div>
+    </div>
+
+    <div class="win-overlay" id="win-screen">
+        <div class="win-msg">Super gemacht! 🌟</div>
+        <button class="btn-again" onclick="startNewGame()">Nochmal spielen</button>
+    </div>
+
+<script>
+    // Audio Synthesizer für direktes, dateiloses Audio-Feedback
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'select') {
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.08);
+        } else if (type === 'match') {
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else if (type === 'wrong') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        } else if (type === 'win') {
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.connect(g);
+                g.connect(audioCtx.destination);
+                o.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+                g.gain.setValueAtTime(0.15, audioCtx.currentTime + i * 0.1);
+                g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.25);
+                o.start(audioCtx.currentTime + i * 0.1);
+                o.stop(audioCtx.currentTime + i * 0.1 + 0.25);
+            });
+        }
+    }
+
+    // Würfelmuster für Zahlen 1 bis 6 in 3x3 Matrix (Indizes 0 bis 8)
+    const dicePatterns = {
+        1: [4],
+        2: [2, 6],
+        3: [2, 4, 6],
+        4: [0, 2, 6, 8],
+        5: [0, 2, 4, 6, 8],
+        6: [0, 2, 3, 5, 6, 8]
+    };
+
+    let selectedCards = [];
+    let matchedPairs = 0;
+    const TOTAL_PAIRS = 4;
+
+    function shuffle(arr) {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    function createDiceHtml(val) {
+        const activeIndices = dicePatterns[val];
+        let html = '<div class="dot-grid">';
+        for (let i = 0; i < 9; i++) {
+            const isVis = activeIndices.includes(i) ? 'visible' : '';
+            html += `<div class="dot ${isVis}"></div>`;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function startNewGame() {
+        document.getElementById('win-screen').classList.remove('show');
+        document.getElementById('board').style.display = 'grid';
+        selectedCards = [];
+        matchedPairs = 0;
+
+        // 4 zufällige Zahlen aus dem Zahlenraum 1-6 wählen
+        const allNums = [1, 2, 3, 4, 5, 6];
+        const chosenNums = shuffle(allNums).slice(0, TOTAL_PAIRS);
+
+        // Linke Spalte: Zahlen (gemischt)
+        const colNum = document.getElementById('col-numbers');
+        colNum.innerHTML = '';
+        shuffle([...chosenNums]).forEach(num => {
+            const c = document.createElement('div');
+            c.className = 'card card-number';
+            c.innerText = num;
+            c.dataset.value = num;
+            c.dataset.type = 'num';
+            c.onclick = () => handleCardClick(c);
+            colNum.appendChild(c);
+        });
+
+        // Rechte Spalte: Würfelpunkte (gemischt)
+        const colDots = document.getElementById('col-dots');
+        colDots.innerHTML = '';
+        shuffle([...chosenNums]).forEach(num => {
+            const c = document.createElement('div');
+            c.className = 'card card-dots';
+            c.innerHTML = createDiceHtml(num);
+            c.dataset.value = num;
+            c.dataset.type = 'dot';
+            c.onclick = () => handleCardClick(c);
+            colDots.appendChild(c);
+        });
+    }
+
+    function handleCardClick(card) {
+        if (card.classList.contains('matched') || card.classList.contains('selected')) return;
+
+        // Gleichen Kartentyp nicht doppelt anwählen (z. B. zwei Zahlen hintereinander)
+        if (selectedCards.length === 1 && selectedCards[0].dataset.type === card.dataset.type) {
+            selectedCards[0].classList.remove('selected');
+            selectedCards = [];
+        }
+
+        playSound('select');
+        card.classList.add('selected');
+        selectedCards.push(card);
+
+        if (selectedCards.length === 2) {
+            checkMatch();
+        }
+    }
+
+    function checkMatch() {
+        const [c1, c2] = selectedCards;
+        const isMatch = c1.dataset.value === c2.dataset.value;
+
+        if (isMatch) {
+            playSound('match');
+            setTimeout(() => {
+                c1.classList.remove('selected');
+                c2.classList.remove('selected');
+                c1.classList.add('matched');
+                c2.classList.add('matched');
+                selectedCards = [];
+                matchedPairs++;
+
+                if (matchedPairs === TOTAL_PAIRS) {
+                    setTimeout(handleWin, 400);
+                }
+            }, 300);
+        } else {
+            playSound('wrong');
+            c1.classList.add('shake');
+            c2.classList.add('shake');
+            setTimeout(() => {
+                c1.classList.remove('selected', 'shake');
+                c2.classList.remove('selected', 'shake');
+                selectedCards = [];
+            }, 600);
+        }
+    }
+
+    function handleWin() {
+        playSound('win');
+        document.getElementById('board').style.display = 'none';
+        document.getElementById('win-screen').classList.add('show');
+        launchConfetti();
+    }
+
+    function launchConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        canvas.style.display = 'block';
+
+        let pieces = [];
+        for (let i = 0; i < 70; i++) {
+            pieces.push({
+                x: Math.random() * canvas.width,
+                y: -20,
+                r: Math.random() * 8 + 4,
+                c: ["#2196f3", "#4caf50", "#ff9800", "#e91e63", "#ffeb3b"][Math.floor(Math.random() * 5)],
+                vy: Math.random() * 4 + 3,
+                vx: Math.random() * 4 - 2
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            pieces.forEach(p => {
+                ctx.beginPath();
+                ctx.fillStyle = p.c;
+                ctx.arc(p.x += p.vx, p.y += p.vy, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            if (pieces.some(p => p.y < canvas.height)) {
+                requestAnimationFrame(draw);
+            } else {
+                canvas.style.display = 'none';
+            }
+        }
+        draw();
+    }
+
+    startNewGame();
+</script>
+</body>
+</html>
