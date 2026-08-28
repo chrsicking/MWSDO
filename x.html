@@ -140,38 +140,50 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 15px;
+            flex-wrap: wrap;
+            gap: 12px;
             margin-bottom: 15px;
             background: white;
-            padding: 10px 20px;
+            padding: 12px 20px;
             border-radius: 18px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.06);
             width: 100%;
-            max-width: 480px;
+            max-width: 520px;
         }
 
-        .target-text {
-            font-size: 22px;
-            font-weight: 600;
+        .target-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #f2f5f9;
+            padding: 6px 12px;
+            border-radius: 30px;
+            border: 2px solid #e5e5ea;
+        }
+
+        .target-item.done {
+            background: #c8e6c9;
+            border-color: #2e7d32;
+            opacity: 0.7;
         }
 
         .target-bubble {
-            width: 55px;
-            height: 55px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
-            border: 3px solid #1c1c1e;
+            border: 2px solid #1c1c1e;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
+            font-size: 22px;
             font-weight: 800;
             background: #fff;
         }
 
-        .progress-text {
-            font-size: 15px;
+        .target-count {
+            font-size: 14px;
+            font-weight: 700;
             color: #636366;
-            font-weight: 600;
         }
 
         /* Gitter */
@@ -276,15 +288,15 @@
         <div class="form-group">
             <label>Buchstaben-Auswahl:</label>
             <div class="btn-group" id="mode-group" style="flex-wrap: wrap;">
-                <button type="button" class="btn-option active" onclick="setMode('upper', this)">Großbuchstaben</button>
-                <button type="button" class="btn-option" onclick="setMode('lower', this)">Kleinbuchstaben</button>
+                <button type="button" class="btn-option active" onclick="setMode('upper', this)">Großbuchstabe</button>
+                <button type="button" class="btn-option" onclick="setMode('lower', this)">Kleinbuchstabe</button>
                 <button type="button" class="btn-option" onclick="setMode('all', this)">Gemischt</button>
                 <button type="button" class="btn-option" onclick="setMode('custom', this)">Eigene Eingabe</button>
             </div>
         </div>
 
         <div class="form-group" id="custom-box" style="display: none;">
-            <label>Buchstaben-Folge eingeben (z. B. NICK):</label>
+            <label>Gesuchte Buchstaben eingeben (z. B. NICK):</label>
             <input type="text" class="custom-input" id="custom-text" placeholder="z. B. NICK" style="display: block;">
         </div>
 
@@ -293,12 +305,7 @@
 
     <!-- GAME SCREEN -->
     <div class="game-area" id="game-screen">
-        <div class="target-header">
-            <div class="target-text">Suche das</div>
-            <div class="target-bubble" id="target-char">A</div>
-            <div class="progress-text" id="target-count">noch 0</div>
-        </div>
-
+        <div class="target-header" id="target-container"></div>
         <div class="grid-container" id="letter-grid"></div>
     </div>
 
@@ -310,7 +317,6 @@
     </div>
 
 <script>
-    // Audio Synthesizer (Offline-Audio)
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playTone(type) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -320,8 +326,8 @@
         gain.connect(audioCtx.destination);
 
         if (type === 'hit') {
-            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
             gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
             osc.start(); osc.stop(audioCtx.currentTime + 0.25);
@@ -351,9 +357,7 @@
 
     let gridDimension = 9;
     let selectedMode = 'upper';
-    let targetQueue = [];
-    let currentTargetIndex = 0;
-    let remainingTargets = 0;
+    let targetCounts = {}; // { 'N': 4, 'I': 4, ... }
 
     function setSize(dim, btn) {
         gridDimension = dim;
@@ -368,9 +372,15 @@
         document.getElementById('custom-box').style.display = mode === 'custom' ? 'block' : 'none';
     }
 
+    function getPool() {
+        if (selectedMode === 'upper' || selectedMode === 'custom') return UPPER_LETTERS;
+        if (selectedMode === 'lower') return LOWER_LETTERS;
+        return ALL_LETTERS;
+    }
+
     function startGame() {
-        targetQueue = [];
-        currentTargetIndex = 0;
+        targetCounts = {};
+        let uniqueTargets = [];
 
         if (selectedMode === 'custom') {
             const raw = document.getElementById('custom-text').value.trim();
@@ -378,94 +388,108 @@
                 alert('Bitte mindestens einen Buchstaben eingeben!');
                 return;
             }
-            targetQueue = raw.split('');
+            // Doppelte Einträge herausfiltern, um Zielmenge zu bilden
+            uniqueTargets = [...new Set(raw.split('').filter(c => c !== ' '))];
         } else if (selectedMode === 'upper') {
-            const r = UPPER_LETTERS[Math.floor(Math.random() * UPPER_LETTERS.length)];
-            targetQueue = [r];
+            uniqueTargets = [UPPER_LETTERS[Math.floor(Math.random() * UPPER_LETTERS.length)]];
         } else if (selectedMode === 'lower') {
-            const r = LOWER_LETTERS[Math.floor(Math.random() * LOWER_LETTERS.length)];
-            targetQueue = [r];
+            uniqueTargets = [LOWER_LETTERS[Math.floor(Math.random() * LOWER_LETTERS.length)]];
         } else {
-            const r = ALL_LETTERS[Math.floor(Math.random() * ALL_LETTERS.length)];
-            targetQueue = [r];
+            uniqueTargets = [ALL_LETTERS[Math.floor(Math.random() * ALL_LETTERS.length)]];
         }
+
+        const totalCells = gridDimension * gridDimension;
+        // Verteile ca. 20-30% des Gitters gleichmäßig auf alle Zielbuchstaben
+        const countPerTarget = Math.max(2, Math.floor((totalCells * 0.25) / uniqueTargets.length));
+
+        uniqueTargets.forEach(t => {
+            targetCounts[t] = countPerTarget;
+        });
 
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('win-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'flex';
 
-        loadTargetStep();
+        renderTargetsHeader();
+        buildGrid(uniqueTargets, totalCells);
     }
 
-    function getPool() {
-        if (selectedMode === 'upper' || selectedMode === 'custom') return UPPER_LETTERS;
-        if (selectedMode === 'lower') return LOWER_LETTERS;
-        return ALL_LETTERS;
+    function renderTargetsHeader() {
+        const container = document.getElementById('target-container');
+        container.innerHTML = '<span style="font-weight:600; font-size:18px;">Suche:</span>';
+
+        Object.keys(targetCounts).forEach(char => {
+            const item = document.createElement('div');
+            item.className = 'target-item';
+            item.id = `target-badge-${char}`;
+            if (targetCounts[char] === 0) item.classList.add('done');
+
+            item.innerHTML = `
+                <div class="target-bubble">${char}</div>
+                <div class="target-count" id="count-${char}">noch ${targetCounts[char]}</div>
+            `;
+            container.appendChild(item);
+        });
     }
 
-    function loadTargetStep() {
-        const target = targetQueue[currentTargetIndex];
-        document.getElementById('target-char').innerText = target;
-
-        const totalCells = gridDimension * gridDimension;
-        // 10% bis 15% der Felder sind Zielbuchstaben (mind. 3)
-        const targetCount = Math.max(3, Math.floor(totalCells * 0.12));
-        remainingTargets = targetCount;
-        updateCounter();
-
+    function buildGrid(uniqueTargets, totalCells) {
         const grid = document.getElementById('letter-grid');
         grid.innerHTML = '';
         grid.style.gridTemplateColumns = `repeat(${gridDimension}, 1fr)`;
         
-        // Schriftgröße dynamisch nach Gitter skalieren
         const fontSize = gridDimension === 6 ? 26 : gridDimension === 9 ? 20 : 15;
 
-        // Array aus Buchstaben erstellen
+        // Zielbuchstaben ins Array packen
         let cellValues = [];
-        for (let i = 0; i < targetCount; i++) cellValues.push(target);
+        uniqueTargets.forEach(target => {
+            for (let i = 0; i < targetCounts[target]; i++) {
+                cellValues.push(target);
+            }
+        });
 
-        const pool = getPool().filter(ch => ch !== target);
+        // Rest mit zufälligen Buchstaben füllen (ohne die Zielbuchstaben)
+        const pool = getPool().filter(ch => !uniqueTargets.includes(ch));
         while (cellValues.length < totalCells) {
             cellValues.push(pool[Math.floor(Math.random() * pool.length)]);
         }
 
-        // Mischen
+        // Durchmischen
         cellValues.sort(() => Math.random() - 0.5);
 
-        // Render Zellen
+        // Im DOM aufbauen
         cellValues.forEach(val => {
             const cell = document.createElement('div');
             cell.className = 'letter-cell';
             cell.style.fontSize = fontSize + 'px';
             cell.innerText = val;
-            cell.onclick = () => handleCellClick(cell, val, target);
+            cell.onclick = () => handleCellClick(cell, val);
             grid.appendChild(cell);
         });
     }
 
-    function updateCounter() {
-        document.getElementById('target-count').innerText = `noch ${remainingTargets}`;
-    }
-
-    function handleCellClick(cell, val, target) {
+    function handleCellClick(cell, val) {
         if (cell.classList.contains('found')) return;
 
-        if (val === target) {
+        // Prüfen, ob der Buchstabe zu den gesuchten gehört
+        if (targetCounts.hasOwnProperty(val) && targetCounts[val] > 0) {
             playTone('hit');
             cell.classList.add('found');
-            remainingTargets--;
-            updateCounter();
+            targetCounts[val]--;
 
-            if (remainingTargets === 0) {
+            // Counter aktualisieren
+            const countEl = document.getElementById(`count-${val}`);
+            if (countEl) countEl.innerText = `noch ${targetCounts[val]}`;
+
+            if (targetCounts[val] === 0) {
+                const badge = document.getElementById(`target-badge-${val}`);
+                if (badge) badge.classList.add('done');
+            }
+
+            // Prüfen, ob ALLES gefunden wurde
+            const allDone = Object.values(targetCounts).every(c => c === 0);
+            if (allDone) {
                 playTone('win');
-                setTimeout(() => {
-                    currentTargetIndex++;
-                    if (currentTargetIndex < targetQueue.length) {
-                        loadTargetStep();
-                    } else {
-                        showWin();
-                    }
-                }, 400);
+                setTimeout(showWin, 500);
             }
         } else {
             playTone('miss');
