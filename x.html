@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Buchstaben nachspuren</title>
+    <style>
+        :root {
+            --bg: #f4f7fb;
+            --primary: #007aff;
+            --text-main: #1c1c1e;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Verhindert Scrollen beim Zeichnen */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-main);
+        }
+
+        .nav-back {
+            align-self: flex-start;
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 10px;
+        }
+
+        .letter-nav-btn {
+            background-color: #e5e5ea;
+            border: none;
+            font-size: 24px;
+            font-weight: bold;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+
+        .letter-nav-btn:active {
+            background-color: #d1d1d6;
+        }
+
+        .current-letter-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        /* Zeichenbereich */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 480px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            border: 3px solid #e5e5ea;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+        }
+
+        #guide-canvas {
+            z-index: 1;
+        }
+
+        #draw-canvas {
+            z-index: 2;
+            cursor: crosshair;
+        }
+
+        /* Werkzeugleiste */
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 480px;
+            flex-wrap: wrap;
+        }
+
+        .color-palette {
+            display: flex;
+            gap: 10px;
+            background: white;
+            padding: 8px 14px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .color-dot {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .color-dot.active {
+            border-color: #1c1c1e;
+            transform: scale(1.1);
+        }
+
+        .btn-clear {
+            background-color: #ff3b30;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255, 59, 48, 0.2);
+        }
+
+        .btn-clear:active {
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="nav-back">← Zurück zur Übersicht</a>
+
+    <div class="header">
+        <button class="letter-nav-btn" onclick="prevLetter()">◀</button>
+        <h1 class="current-letter-title" id="title-text">Buchstabe A</h1>
+        <button class="letter-nav-btn" onclick="nextLetter()">▶</button>
+    </div>
+
+    <div class="canvas-container" id="container">
+        <canvas id="guide-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="color-palette">
+            <div class="color-dot active" style="background:#007aff;" onclick="setColor('#007aff', this)"></div>
+            <div class="color-dot" style="background:#34c759;" onclick="setColor('#34c759', this)"></div>
+            <div class="color-dot" style="background:#ff9500;" onclick="setColor('#ff9500', this)"></div>
+            <div class="color-dot" style="background:#af52de;" onclick="setColor('#af52de', this)"></div>
+        </div>
+        <button class="btn-clear" onclick="clearDrawing()">Neu malen</button>
+    </div>
+
+<script>
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    let currentIndex = 0;
+    let currentColor = '#007aff';
+    const lineWidth = 18;
+
+    const guideCanvas = document.getElementById('guide-canvas');
+    const drawCanvas = document.getElementById('draw-canvas');
+    const guideCtx = guideCanvas.getContext('2d');
+    const drawCtx = drawCanvas.getContext('2d');
+    const container = document.getElementById('container');
+
+    function resizeCanvases() {
+        const size = container.clientWidth;
+        guideCanvas.width = size;
+        guideCanvas.height = size;
+        drawCanvas.width = size;
+        drawCanvas.height = size;
+        drawLetterGuide();
+    }
+
+    function drawLetterGuide() {
+        const size = guideCanvas.width;
+        guideCtx.clearRect(0, 0, size, size);
+
+        // Hilfslinien (Grundlinie / Mittellinie)
+        guideCtx.strokeStyle = '#f2f2f7';
+        guideCtx.lineWidth = 2;
+        guideCtx.beginPath();
+        guideCtx.moveTo(20, size * 0.2); guideCtx.lineTo(size - 20, size * 0.2);
+        guideCtx.moveTo(20, size * 0.5); guideCtx.lineTo(size - 20, size * 0.5);
+        guideCtx.moveTo(20, size * 0.8); guideCtx.lineTo(size - 20, size * 0.8);
+        guideCtx.stroke();
+
+        // Gestrichelter Buchstabe als Kontur
+        const letter = alphabet[currentIndex];
+        guideCtx.font = `bold ${size * 0.72}px -apple-system, sans-serif`;
+        guideCtx.textAlign = 'center';
+        guideCtx.textBaseline = 'middle';
+        
+        // Sanfter grauer Hintergrund
+        guideCtx.fillStyle = '#f0f0f5';
+        guideCtx.fillText(letter, size / 2, size / 2 + 10);
+
+        // Gestrichelte Nachspur-Linie
+        guideCtx.strokeStyle = '#c7c7cc';
+        guideCtx.lineWidth = 6;
+        guideCtx.setLineDash([12, 10]);
+        guideCtx.strokeText(letter, size / 2, size / 2 + 10);
+        guideCtx.setLineDash([]);
+    }
+
+    // Touch-Zeichenlogik
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    function getCoords(e) {
+        const rect = drawCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    function startDraw(e) {
+        isDrawing = true;
+        const coords = getCoords(e);
+        lastX = coords.x;
+        lastY = coords.y;
+
+        drawCtx.beginPath();
+        drawCtx.arc(lastX, lastY, lineWidth / 2, 0, Math.PI * 2);
+        drawCtx.fillStyle = currentColor;
+        drawCtx.fill();
+    }
+
+    function draw(e) {
+        if (!isDrawing) return;
+        const coords = getCoords(e);
+        
+        drawCtx.beginPath();
+        drawCtx.moveTo(lastX, lastY);
+        drawCtx.lineTo(coords.x, coords.y);
+        drawCtx.strokeStyle = currentColor;
+        drawCtx.lineWidth = lineWidth;
+        drawCtx.lineCap = 'round';
+        drawCtx.lineJoin = 'round';
+        drawCtx.stroke();
+
+        lastX = coords.x;
+        lastY = coords.y;
+    }
+
+    function stopDraw() {
+        isDrawing = false;
+    }
+
+    drawCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
+    drawCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, { passive: false });
+    drawCanvas.addEventListener('touchend', stopDraw);
+    
+    drawCanvas.addEventListener('mousedown', startDraw);
+    drawCanvas.addEventListener('mousemove', draw);
+    drawCanvas.addEventListener('mouseup', stopDraw);
+    drawCanvas.addEventListener('mouseleave', stopDraw);
+
+    function setColor(color, element) {
+        currentColor = color;
+        document.querySelectorAll('.color-dot').forEach(dot => dot.classList.remove('active'));
+        element.classList.add('active');
+    }
+
+    function clearDrawing() {
+        drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    }
+
+    function nextLetter() {
+        if (currentIndex < alphabet.length - 1) {
+            currentIndex++;
+            updateLetterView();
+        }
+    }
+
+    function prevLetter() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateLetterView();
+        }
+    }
+
+    function updateLetterView() {
+        document.getElementById('title-text').innerText = `Buchstabe ${alphabet[currentIndex]}`;
+        clearDrawing();
+        drawLetterGuide();
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+    window.addEventListener('load', resizeCanvases);
+</script>
+</body>
+</html>
