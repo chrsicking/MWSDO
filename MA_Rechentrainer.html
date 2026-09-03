@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Rechentrainer</title>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --bg: #f2f5f9;
+            --card: #ffffff;
+            --text: #1c1c1e;
+            --success: #34C759;
+            --error: #FF3B30;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .nav-back {
+            align-self: flex-start;
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        /* Einstellungs-Bildschirm */
+        .setup-container {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 25px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            margin-top: 10px;
+        }
+
+        .setup-container h2 {
+            margin-top: 0;
+            font-size: 22px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-option {
+            flex: 1;
+            min-width: 80px;
+            padding: 12px 6px;
+            border: 2px solid #d1d1d6;
+            background: #fff;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-option.active {
+            border-color: var(--primary);
+            background: #e3f2fd;
+            color: var(--primary);
+        }
+
+        .btn-start {
+            width: 100%;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            padding: 16px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+            margin-top: 10px;
+        }
+
+        .btn-start:active {
+            transform: scale(0.98);
+        }
+
+        /* Spiel-Bereich */
+        .game-area {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            background-color: #e5e5ea;
+            height: 14px;
+            border-radius: 7px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--success);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .task-card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 20px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+            font-size: 40px;
+            font-weight: 800;
+        }
+
+        .input-display {
+            min-width: 70px;
+            height: 60px;
+            border: 3px solid var(--primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fdfdfd;
+            color: var(--primary);
+            padding: 0 10px;
+        }
+
+        .input-display.shake {
+            animation: shake 0.35s ease;
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        /* Ziffernblock */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+        }
+
+        .key-btn {
+            background: white;
+            border: 2px solid #e5e5ea;
+            border-radius: 16px;
+            font-size: 28px;
+            font-weight: bold;
+            height: 65px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+            color: var(--text);
+        }
+
+        .key-btn:active {
+            transform: scale(0.95);
+            background: #f2f2f7;
+        }
+
+        .key-del {
+            background: #fff1f0;
+            border-color: #ffa39e;
+            color: var(--error);
+        }
+
+        .key-ok {
+            background: #e8f5e9;
+            border-color: #a5d6a7;
+            color: #2e7d32;
+        }
+
+        /* Abschlussbildschirm */
+        .win-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            margin-top: 30px;
+            text-align: center;
+            max-width: 380px;
+        }
+
+        .win-screen h2 {
+            color: #2e7d32;
+            font-size: 32px;
+            margin: 0 0 10px 0;
+        }
+
+        #firework-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="firework-canvas"></canvas>
+
+    <a href="index.html" class="nav-back">← Zurück zur Übersicht</a>
+
+    <!-- SETUP SCREEN -->
+    <div class="setup-container" id="setup-screen">
+        <h2>⚙️ Rechentrainer</h2>
+
+        <div class="form-group">
+            <label>1. Rechenart:</label>
+            <div class="btn-group" id="group-op">
+                <button type="button" class="btn-option active" onclick="setOp('plus', this)">Nur Plus (+)</button>
+                <button type="button" class="btn-option" onclick="setOp('both', this)">Plus & Minus (±)</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>2. Zahlenraum:</label>
+            <div class="btn-group" id="group-zr">
+                <button type="button" class="btn-option active" onclick="setZR(6, this)">bis 6</button>
+                <button type="button" class="btn-option" onclick="setZR(10, this)">bis 10</button>
+                <button type="button" class="btn-option" onclick="setZR(20, this)">bis 20</button>
+                <button type="button" class="btn-option" onclick="setZR(100, this)">bis 100</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>3. Zehnerübergang:</label>
+            <div class="btn-group" id="group-trans">
+                <button type="button" class="btn-option active" onclick="setTrans('without', this)">ohne Übergang</button>
+                <button type="button" class="btn-option" onclick="setTrans('with', this)">mit Übergang</button>
+            </div>
+        </div>
+
+        <button class="btn-start" onclick="startGame()">Starten ▶</button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div class="game-area" id="game-screen">
+        <div class="progress-bar-container">
+            <div class="progress-fill" id="progress-bar"></div>
+        </div>
+
+        <div class="task-card">
+            <span id="task-text">2 + 3 =</span>
+            <div class="input-display" id="user-input">?</div>
+        </div>
+
+        <div class="keypad">
+            <button class="key-btn" onclick="pressKey('1')">1</button>
+            <button class="key-btn" onclick="pressKey('2')">2</button>
+            <button class="key-btn" onclick="pressKey('3')">3</button>
+            <button class="key-btn" onclick="pressKey('4')">4</button>
+            <button class="key-btn" onclick="pressKey('5')">5</button>
+            <button class="key-btn" onclick="pressKey('6')">6</button>
+            <button class="key-btn" onclick="pressKey('7')">7</button>
+            <button class="key-btn" onclick="pressKey('8')">8</button>
+            <button class="key-btn" onclick="pressKey('9')">9</button>
+            <button class="key-btn key-del" onclick="deleteInput()">⌫</button>
+            <button class="key-btn" onclick="pressKey('0')">0</button>
+            <button class="key-btn key-ok" onclick="submitAnswer()">OK</button>
+        </div>
+    </div>
+
+    <!-- WIN SCREEN -->
+    <div class="win-screen" id="win-screen">
+        <h2>Super! 🎆</h2>
+        <p style="font-size: 18px; color: #636366; margin-bottom: 25px;">10 Aufgaben richtig gelöst!</p>
+        <button class="btn-start" onclick="backToSetup()">Nochmal spielen</button>
+    </div>
+
+<script>
+    // Audio Synthesizer
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'tap') {
+            osc.frequency.setValueAtTime(450, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        } else if (type === 'correct') {
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // E5
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+        } else if (type === 'wrong') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        } else if (type === 'boom') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+    }
+
+    // Voreinstellungen
+    let configOp = 'plus';
+    let configZR = 6;
+    let configTrans = 'without';
+
+    let currentAnswer = 0;
+    let currentInput = "";
+    let correctCount = 0;
+    const GOAL = 10;
+
+    function setOp(val, btn) {
+        configOp = val;
+        document.querySelectorAll('#group-op .btn-option').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function setZR(val, btn) {
+        configZR = val;
+        document.querySelectorAll('#group-zr .btn-option').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function setTrans(val, btn) {
+        configTrans = val;
+        document.querySelectorAll('#group-trans .btn-option').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function startGame() {
+        correctCount = 0;
+        updateProgress();
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('win-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'flex';
+        nextTask();
+    }
+
+    function nextTask() {
+        currentInput = "";
+        renderInputDisplay();
+
+        let op = '+';
+        if (configOp === 'both') {
+            op = Math.random() < 0.5 ? '+' : '-';
+        }
+
+        let a = 0, b = 0, ans = 0;
+        let valid = false;
+        let attempts = 0;
+
+        while (!valid && attempts < 1000) {
+            attempts++;
+            if (op === '+') {
+                a = Math.floor(Math.random() * (configZR)) + 1;
+                b = Math.floor(Math.random() * (configZR)) + 1;
+                ans = a + b;
+
+                if (ans > configZR) continue;
+
+                // Zehnerübergang prüfen (nur relevant ab ZR 20)
+                if (configZR >= 20) {
+                    const hasTrans = (a % 10) + (b % 10) >= 10;
+                    if (configTrans === 'with' && !hasTrans) continue;
+                    if (configTrans === 'without' && hasTrans) continue;
+                }
+                valid = true;
+            } else {
+                a = Math.floor(Math.random() * (configZR)) + 1;
+                b = Math.floor(Math.random() * (configZR)) + 1;
+                if (a < b) { const tmp = a; a = b; b = tmp; }
+                ans = a - b;
+
+                if (ans < 0) continue;
+
+                if (configZR >= 20) {
+                    const hasTrans = (a % 10) < (b % 10);
+                    if (configTrans === 'with' && !hasTrans) continue;
+                    if (configTrans === 'without' && hasTrans) continue;
+                }
+                valid = true;
+            }
+        }
+
+        currentAnswer = ans;
+        document.getElementById('task-text').innerText = `${a} ${op} ${b} =`;
+    }
+
+    function pressKey(num) {
+        playTone('tap');
+        if (currentInput.length >= 3) return;
+        currentInput += num;
+        renderInputDisplay();
+    }
+
+    function deleteInput() {
+        playTone('tap');
+        currentInput = currentInput.slice(0, -1);
+        renderInputDisplay();
+    }
+
+    function renderInputDisplay() {
+        const el = document.getElementById('user-input');
+        el.innerText = currentInput === "" ? "?" : currentInput;
+    }
+
+    function submitAnswer() {
+        if (currentInput === "") return;
+        const val = parseInt(currentInput, 10);
+        const display = document.getElementById('user-input');
+
+        if (val === currentAnswer) {
+            playTone('correct');
+            correctCount++;
+            updateProgress();
+
+            if (correctCount >= GOAL) {
+                setTimeout(showWinScreen, 400);
+            } else {
+                setTimeout(nextTask, 300);
+            }
+        } else {
+            playTone('wrong');
+            display.classList.add('shake');
+            setTimeout(() => {
+                display.classList.remove('shake');
+                currentInput = "";
+                renderInputDisplay();
+            }, 500);
+        }
+    }
+
+    function updateProgress() {
+        const pct = (correctCount / GOAL) * 100;
+        document.getElementById('progress-bar').style.width = pct + '%';
+    }
+
+    function showWinScreen() {
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('win-screen').style.display = 'flex';
+        triggerFireworks();
+    }
+
+    function backToSetup() {
+        stopFireworks();
+        document.getElementById('win-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'block';
+    }
+
+    // Feuerwerk-Animation
+    let fwCanvas, fwCtx, fwAnimId;
+    let particles = [];
+    let rockets = [];
+
+    function triggerFireworks() {
+        fwCanvas = document.getElementById('firework-canvas');
+        fwCtx = fwCanvas.getContext('2d');
+        fwCanvas.width = window.innerWidth;
+        fwCanvas.height = window.innerHeight;
+        fwCanvas.style.display = 'block';
+        particles = [];
+        rockets = [];
+
+        let count = 0;
+        const timer = setInterval(() => {
+            launchRocket();
+            count++;
+            if (count > 7) clearInterval(timer);
+        }, 500);
+
+        renderFireworks();
+    }
+
+    function launchRocket() {
+        rockets.push({
+            x: Math.random() * (fwCanvas.width - 100) + 50,
+            y: fwCanvas.height,
+            targetY: Math.random() * (fwCanvas.height * 0.4) + 80,
+            vy: -8 - Math.random() * 4,
+            color: `hsl(${Math.floor(Math.random() * 360)}, 100%, 60%)`
+        });
+    }
+
+    function explode(x, y, color) {
+        playTone('boom');
+        for (let i = 0; i < 45; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+            particles.push({
+                x: x, y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                alpha: 1,
+                color: color
+            });
+        }
+    }
+
+    function renderFireworks() {
+        fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+
+        // Raketen aufsteigen lassen
+        for (let i = rockets.length - 1; i >= 0; i--) {
+            const r = rockets[i];
+            r.y += r.vy;
+            fwCtx.fillStyle = r.color;
+            fwCtx.fillRect(r.x, r.y, 4, 10);
+            if (r.y <= r.targetY) {
+                explode(r.x, r.y, r.color);
+                rockets.splice(i, 1);
+            }
+        }
+
+        // Partikel explodieren lassen
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.08; // Schwerkraft
+            p.alpha -= 0.015;
+
+            fwCtx.save();
+            fwCtx.globalAlpha = Math.max(0, p.alpha);
+            fwCtx.fillStyle = p.color;
+            fwCtx.beginPath();
+            fwCtx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            fwCtx.fill();
+            fwCtx.restore();
+
+            if (p.alpha <= 0) particles.splice(i, 1);
+        }
+
+        fwAnimId = requestAnimationFrame(renderFireworks);
+    }
+
+    function stopFireworks() {
+        cancelAnimationFrame(fwAnimId);
+        if (fwCanvas) fwCanvas.style.display = 'none';
+    }
+</script>
+</body>
+</html>
