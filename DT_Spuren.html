@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Buchstaben nachspuren</title>
+    <title>Buchstaben nachspuren (Druckschrift Nord)</title>
+    <!-- Einbindung der didaktischen Schulschrift Andika (Druckschrift-Konform) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --primary: #007AFF;
@@ -16,11 +21,11 @@
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none; /* Verhindert Scrollen beim Nachspuren */
+            touch-action: none;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Andika', -apple-system, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -41,7 +46,6 @@
             touch-action: manipulation;
         }
 
-        /* Setup-Bildschirm */
         .setup-container {
             background: var(--card);
             border-radius: 20px;
@@ -102,6 +106,7 @@
             border-radius: 12px;
             outline: none;
             display: none;
+            font-family: 'Andika', sans-serif;
         }
 
         .custom-input:focus {
@@ -126,13 +131,12 @@
             transform: scale(0.98);
         }
 
-        /* Übungs-Bereich */
         .exercise-area {
             display: none;
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 800px;
+            max-width: 900px;
         }
 
         .exercise-header {
@@ -165,17 +169,16 @@
 
         .letter-title {
             font-size: 22px;
-            font-weight: 800;
+            font-weight: 700;
             margin: 0;
             text-align: center;
             flex: 1;
         }
 
-        /* Zeichenbereich */
         .canvas-wrapper {
             position: relative;
             width: 100%;
-            height: 320px;
+            height: 380px;
             background: white;
             border-radius: 20px;
             box-shadow: 0 6px 20px rgba(0,0,0,0.08);
@@ -192,16 +195,9 @@
             height: 100%;
         }
 
-        #guide-canvas {
-            z-index: 1;
-        }
+        #guide-canvas { z-index: 1; }
+        #draw-canvas { z-index: 2; cursor: crosshair; }
 
-        #draw-canvas {
-            z-index: 2;
-            cursor: crosshair;
-        }
-
-        /* Werkzeugleiste */
         .toolbar {
             display: flex;
             gap: 12px;
@@ -242,24 +238,16 @@
             cursor: pointer;
         }
 
-        .btn-clear {
-            background: #ff3b30;
-            color: white;
-        }
-
-        .btn-settings {
-            background: #e5e5ea;
-            color: var(--text);
-        }
+        .btn-clear { background: #ff3b30; color: white; }
+        .btn-settings { background: #e5e5ea; color: var(--text); }
     </style>
 </head>
 <body>
 
     <a href="index.html" class="nav-back">← Zurück zur Übersicht</a>
 
-    <!-- SETUP SCREEN -->
     <div class="setup-container" id="setup-screen">
-        <h2>✍️ Buchstaben nachspuren</h2>
+        <h2>✍️ Schuldruckschrift nachspuren</h2>
 
         <div class="form-group">
             <label>Auswahl:</label>
@@ -279,7 +267,6 @@
         <button class="btn-start" onclick="startSpuren()">Starten ▶</button>
     </div>
 
-    <!-- ÜBUNGS BEREICH -->
     <div class="exercise-area" id="exercise-screen">
         <div class="exercise-header">
             <button class="nav-btn" id="btn-prev" onclick="prevLetter()">◀</button>
@@ -331,30 +318,32 @@
     }
 
     function startSpuren() {
-        if (currentMode === 'custom') {
-            customWord = document.getElementById('custom-text').value.trim();
-            if (!customWord) {
-                alert('Bitte ein Wort oder einen Namen eingeben!');
-                return;
+        // Sicherstellen, dass die Schulschrift vor dem Zeichnen geladen ist
+        document.fonts.load('bold 100px "Andika"').then(() => {
+            if (currentMode === 'custom') {
+                customWord = document.getElementById('custom-text').value.trim();
+                if (!customWord) {
+                    alert('Bitte ein Wort oder einen Namen eingeben!');
+                    return;
+                }
+                document.getElementById('btn-prev').style.display = 'none';
+                document.getElementById('btn-next').style.display = 'none';
+            } else {
+                document.getElementById('btn-prev').style.display = 'flex';
+                document.getElementById('btn-next').style.display = 'flex';
+
+                if (currentMode === 'upper') lettersList = [...UPPER];
+                else if (currentMode === 'lower') lettersList = [...LOWER];
+                else if (currentMode === 'all') lettersList = [...ALL];
+                currentIndex = 0;
             }
-            // Pfeile ausblenden, da das ganze Wort auf einer Seite steht
-            document.getElementById('btn-prev').style.display = 'none';
-            document.getElementById('btn-next').style.display = 'none';
-        } else {
-            document.getElementById('btn-prev').style.display = 'flex';
-            document.getElementById('btn-next').style.display = 'flex';
 
-            if (currentMode === 'upper') lettersList = [...UPPER];
-            else if (currentMode === 'lower') lettersList = [...LOWER];
-            else if (currentMode === 'all') lettersList = [...ALL];
-            currentIndex = 0;
-        }
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('exercise-screen').style.display = 'flex';
 
-        document.getElementById('setup-screen').style.display = 'none';
-        document.getElementById('exercise-screen').style.display = 'flex';
-
-        resizeCanvases();
-        renderExercise();
+            resizeCanvases();
+            renderExercise();
+        });
     }
 
     function backToSetup() {
@@ -374,21 +363,37 @@
         const h = guideCanvas.height;
         guideCtx.clearRect(0, 0, w, h);
 
-        // Orientierungslinien (Drei-Linien-System: Oberkante, Mittellinie, Grundlinie)
-        const lineTop = h * 0.25;
-        const lineMid = h * 0.50;
-        const lineBase = h * 0.75;
+        // Grundschul-Lineatur:
+        // Oberlinie (Dach), Mittellinie (Erdgeschoss-Decke), Grundlinie (Boden), Unterlinie (Keller)
+        const lineTop = h * 0.22;
+        const lineMid = h * 0.46;
+        const lineBase = h * 0.70;
+        const lineBottom = h * 0.90;
 
-        guideCtx.strokeStyle = '#e5e5ea';
         guideCtx.lineWidth = 2;
-        [lineTop, lineMid, lineBase].forEach(y => {
-            guideCtx.beginPath();
-            guideCtx.moveTo(20, y);
-            guideCtx.lineTo(w - 20, y);
-            guideCtx.stroke();
-        });
 
-        guideCtx.textAlign = 'center';
+        // Ober- und Unterlinie (dezent grau)
+        guideCtx.strokeStyle = '#e0e0e0';
+        guideCtx.beginPath();
+        guideCtx.moveTo(20, lineTop); guideCtx.lineTo(w - 20, lineTop);
+        guideCtx.moveTo(20, lineBottom); guideCtx.lineTo(w - 20, lineBottom);
+        guideCtx.stroke();
+
+        // Mittellinie gestrichelt
+        guideCtx.strokeStyle = '#c7c7cc';
+        guideCtx.setLineDash([8, 8]);
+        guideCtx.beginPath();
+        guideCtx.moveTo(20, lineMid); guideCtx.lineTo(w - 20, lineMid);
+        guideCtx.stroke();
+        guideCtx.setLineDash([]);
+
+        // Grundlinie (kräftiger hervorgehoben)
+        guideCtx.strokeStyle = '#8e8e93';
+        guideCtx.lineWidth = 3;
+        guideCtx.beginPath();
+        guideCtx.moveTo(20, lineBase); guideCtx.lineTo(w - 20, lineBase);
+        guideCtx.stroke();
+
         guideCtx.textBaseline = 'alphabetic';
 
         if (currentMode === 'custom') {
@@ -404,15 +409,16 @@
     }
 
     function drawSingleGuide(letter, x, baseY) {
-        const fontSize = 160;
-        guideCtx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        const fontSize = 165;
+        guideCtx.font = `bold ${fontSize}px 'Andika', sans-serif`;
+        guideCtx.textAlign = 'center';
 
         // Heller Untergrund
-        guideCtx.fillStyle = '#f0f2f7';
+        guideCtx.fillStyle = '#ebedf2';
         guideCtx.fillText(letter, x, baseY);
 
-        // Gestrichelte Nachspurlinie
-        guideCtx.strokeStyle = '#8e8e93';
+        // Gestrichelte Führungslinie
+        guideCtx.strokeStyle = '#7c7c82';
         guideCtx.lineWidth = 5;
         guideCtx.setLineDash([12, 10]);
         guideCtx.strokeText(letter, x, baseY);
@@ -420,29 +426,45 @@
     }
 
     function drawWordGuide(word, width, baseY) {
-        // Schriftgröße dynamisch nach Wortlänge skalieren, damit es immer ins Bild passt
-        const maxLetters = Math.max(word.length, 3);
-        const approxCharWidth = (width - 60) / maxLetters;
-        const fontSize = Math.min(140, Math.floor(approxCharWidth * 1.3));
+        const chars = word.split('');
+        const numChars = chars.length;
 
-        guideCtx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        // Großzügige Abstände (Spacing) zwischen den Buchstaben
+        const availableWidth = width - 80;
+        const letterSpacing = Math.max(35, Math.min(65, availableWidth / (numChars * 1.8)));
+        
+        let fontSize = Math.min(140, Math.floor(availableWidth / (numChars * 0.95)));
+        fontSize = Math.max(65, fontSize);
 
-        // Breiten messen und gleichmäßig zentriert anordnen
-        const totalWordWidth = guideCtx.measureText(word).width;
-        let startX = (width - totalWordWidth) / 2;
+        guideCtx.font = `bold ${fontSize}px 'Andika', sans-serif`;
 
+        // Gesamtbreite berechnen
+        let totalWidth = 0;
+        const charWidths = chars.map(ch => {
+            const w = guideCtx.measureText(ch).width;
+            totalWidth += w;
+            return w;
+        });
+        totalWidth += (numChars - 1) * letterSpacing;
+
+        // Wort horizontal zentrieren
+        let currentX = (width - totalWidth) / 2;
         guideCtx.textAlign = 'left';
 
-        // Heller Hintergrund
-        guideCtx.fillStyle = '#f0f2f7';
-        guideCtx.fillText(word, startX, baseY);
+        chars.forEach((ch, idx) => {
+            // Heller Untergrund
+            guideCtx.fillStyle = '#ebedf2';
+            guideCtx.fillText(ch, currentX, baseY);
 
-        // Gestrichelte Kontur
-        guideCtx.strokeStyle = '#8e8e93';
-        guideCtx.lineWidth = Math.max(3, fontSize * 0.04);
-        guideCtx.setLineDash([10, 8]);
-        guideCtx.strokeText(word, startX, baseY);
-        guideCtx.setLineDash([]);
+            // Gestrichelte Führungskontur
+            guideCtx.strokeStyle = '#7c7c82';
+            guideCtx.lineWidth = Math.max(3.5, fontSize * 0.04);
+            guideCtx.setLineDash([10, 8]);
+            guideCtx.strokeText(ch, currentX, baseY);
+            guideCtx.setLineDash([]);
+
+            currentX += charWidths[idx] + letterSpacing;
+        });
     }
 
     function nextLetter() {
